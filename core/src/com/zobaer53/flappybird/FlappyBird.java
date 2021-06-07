@@ -1,7 +1,11 @@
 package com.zobaer53.flappybird;
 
 import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Audio;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -13,8 +17,13 @@ import java.util.Random;
 
 
 public class FlappyBird extends ApplicationAdapter {
+	Preferences preferences ;
+
 	SpriteBatch batch;
 	Texture background;
+
+	Music music;
+	Sound sound;
 
 	//ShapeRenderer shapeRenderer;
 
@@ -26,8 +35,10 @@ public class FlappyBird extends ApplicationAdapter {
 	float velocity = 0;
 	Circle birdCircle;
 	int score = 0;
+	int highScore ;
 	int scoringTube = 0;
 	BitmapFont font;
+	BitmapFont font1;
 
 	int gameState = 0;
 	float gravity = 2;
@@ -46,19 +57,37 @@ public class FlappyBird extends ApplicationAdapter {
 	Rectangle[] bottomTubeRectangles;
 
 
-
+	@Override
+	public void dispose() {
+		super.dispose();
+		music.dispose();
+		sound.dispose();
+	}
 
 	@Override
 	public void create () {
+		preferences = Gdx.app.getPreferences("flappybird");
+		highScore = preferences.getInteger("highscore",0);
 		batch = new SpriteBatch();
 		background = new Texture("bg.png");
 		gameover = new Texture("gameover.png");
+
+		music= Gdx.audio.newMusic(Gdx.files.internal("android_assets_music.mp3"));
+		music.setLooping(true);
+		music.setVolume(0.1f);
+		music.play();
+
+        sound = Gdx.audio.newSound(Gdx.files.internal("android_assets_sfx_wing.ogg"));
 
 
 		birdCircle = new Circle();
 		font = new BitmapFont();
 		font.setColor(Color.WHITE);
 		font.getData().setScale(10);
+
+		font1 = new BitmapFont();
+		font1.setColor(Color.YELLOW);
+		font1.getData().setScale(5);
 
 		birds = new Texture[2];
 		birds[0] = new Texture("bird.png");
@@ -98,10 +127,13 @@ public class FlappyBird extends ApplicationAdapter {
 	@Override
 	public void render () {
 
+
 		batch.begin();
 		batch.draw(background, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
 		if (gameState == 1) {
+			batch.draw(birds[flapState], Gdx.graphics.getWidth() / 2 - birds[flapState].getWidth() / 2, birdY);
+
 
 			if (tubeX[scoringTube] < Gdx.graphics.getWidth() / 2) {
 
@@ -122,6 +154,7 @@ public class FlappyBird extends ApplicationAdapter {
 			}
 
 			if (Gdx.input.justTouched()) {
+				sound.play(0.5f);
 
 				velocity = -30;
 
@@ -164,6 +197,14 @@ public class FlappyBird extends ApplicationAdapter {
 				gameState = 2;
 
 			}
+			font.draw(batch, String.valueOf(score), 100, 200);
+			if(score>highScore){
+
+				highScore=score;
+				preferences.putInteger("highscore",highScore);
+				preferences.flush();
+			}
+
 
 		} else if (gameState == 0) {
 
@@ -176,7 +217,11 @@ public class FlappyBird extends ApplicationAdapter {
 
 		} else if (gameState == 2) {
 
+
 			batch.draw(gameover, Gdx.graphics.getWidth() / 2 - gameover.getWidth() / 2, Gdx.graphics.getHeight() / 2 - gameover.getHeight() / 2);
+			font1.draw(batch,"High Score", 200, 600);
+
+			font1.draw(batch, String.valueOf(highScore), 350, 500);
 
 			if (Gdx.input.justTouched()) {
 
@@ -195,9 +240,7 @@ public class FlappyBird extends ApplicationAdapter {
 			flapState = 0;
 		}
 
-		batch.draw(birds[flapState], Gdx.graphics.getWidth() / 2 - birds[flapState].getWidth() / 2, birdY);
 
-		font.draw(batch, String.valueOf(score), 100, 200);
 
 		birdCircle.set(Gdx.graphics.getWidth() / 2, birdY + birds[flapState].getHeight() / 2, birds[flapState].getWidth() / 2);
 
