@@ -1,1 +1,15 @@
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
 include 'android', 'core'
+
+rootProject.name = 'FlappyBird'
+
+// Enable proper repository access
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        jcenter()
+    }
+}

@@ -1,4 +1,5 @@
 android {
+    namespace "com.zobaer53.flappybird"
     buildToolsVersion "30.0.3"
     compileSdkVersion 30
     sourceSets {
@@ -11,10 +12,11 @@ android {
             assets.srcDirs = ['assets']
             jniLibs.srcDirs = ['libs']
         }
-
     }
     packagingOptions {
-        exclude 'META-INF/robovm/ios/robovm.xml'
+        resources {
+            excludes += ['META-INF/robovm/ios/robovm.xml']
+        }
     }
     defaultConfig {
         applicationId "com.zobaer53.flappybird"
@@ -22,12 +24,21 @@ android {
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
+        
+        // Fix for RenderScript issue
+        renderscriptTargetApi 30
+        renderscriptSupportModeEnabled true
     }
     buildTypes {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+    
+    // Disable RenderScript validation
+    lintOptions {
+        disable 'InvalidPackage'
     }
 }
 

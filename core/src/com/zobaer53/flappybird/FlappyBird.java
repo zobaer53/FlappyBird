@@ -7,6 +7,7 @@ import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -28,6 +29,7 @@ public class FlappyBird extends ApplicationAdapter {
 	//ShapeRenderer shapeRenderer;
 
 	Texture gameover;
+	Texture startImage;
 
 	Texture[] birds;
 	int flapState = 0;
@@ -55,30 +57,92 @@ public class FlappyBird extends ApplicationAdapter {
 	float distanceBetweenTubes;
 	Rectangle[] topTubeRectangles;
 	Rectangle[] bottomTubeRectangles;
+	
+	// Mute functionality
+	Texture soundOnIcon;
+	Texture soundOffIcon;
+	boolean isMuted = false;
+	Rectangle muteButtonRect;
 
 
 	@Override
 	public void dispose() {
 		super.dispose();
-		music.dispose();
-		sound.dispose();
+		if (music != null) {
+			music.dispose();
+		}
+		if (sound != null) {
+			sound.dispose();
+		}
+		background.dispose();
+		gameover.dispose();
+		startImage.dispose();
+		topTube.dispose();
+		bottomTube.dispose();
+		for (Texture bird : birds) {
+			bird.dispose();
+		}
+		soundOnIcon.dispose();
+		soundOffIcon.dispose();
+		font.dispose();
+		font1.dispose();
+		batch.dispose();
 	}
 
 	@Override
 	public void create () {
 		preferences = Gdx.app.getPreferences("flappybird");
 		highScore = preferences.getInteger("highscore",0);
+		// Load mute state from preferences
+		isMuted = preferences.getBoolean("muted", false);
+		
 		batch = new SpriteBatch();
 		background = new Texture("bg.png");
 		gameover = new Texture("gameover.png");
+		startImage = new Texture("start_image.png");
+		
+		// Load sound icons
+		try {
+			soundOnIcon = new Texture("sound_on.png");
+			soundOffIcon = new Texture("sound_off.png");
+		} catch (Exception e) {
+			Gdx.app.log("Texture Error", "Could not load sound icons: " + e.getMessage());
+			// Create fallback textures using Pixmap
+			Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+			pixmap.setColor(Color.WHITE);
+			pixmap.fill();
+			soundOnIcon = new Texture(pixmap);
+			soundOffIcon = new Texture(pixmap);
+			pixmap.dispose();
+		}
+		
+		// Set up mute button rectangle for touch detection - position at top right with good size
+		float buttonSize = Math.min(Gdx.graphics.getWidth(), Gdx.graphics.getHeight()) / 10;
+		muteButtonRect = new Rectangle(
+			Gdx.graphics.getWidth() - buttonSize - 20, // 20px from right edge
+			Gdx.graphics.getHeight() - buttonSize - 20, // 20px from top edge
+			buttonSize,
+			buttonSize
+		);
 
-		music= Gdx.audio.newMusic(Gdx.files.internal("android_assets_music.mp3"));
-		music.setLooping(true);
-		music.setVolume(0.1f);
-		music.play();
+		try {
+			music = Gdx.audio.newMusic(Gdx.files.internal("android_assets_music.mp3"));
+			music.setLooping(true);
+			music.setVolume(0.1f);
+			if (!isMuted) {
+				music.play();
+			}
+		} catch (Exception e) {
+			Gdx.app.log("Audio Error", "Could not load music file: " + e.getMessage());
+			music = null;
+		}
 
-        sound = Gdx.audio.newSound(Gdx.files.internal("android_assets_sfx_wing.ogg"));
-
+		try {
+			sound = Gdx.audio.newSound(Gdx.files.internal("android_assets_sfx_wing.ogg"));
+		} catch (Exception e) {
+			Gdx.app.log("Audio Error", "Could not load sound file: " + e.getMessage());
+			sound = null;
+		}
 
 		birdCircle = new Circle();
 		font = new BitmapFont();
@@ -126,10 +190,32 @@ public class FlappyBird extends ApplicationAdapter {
 
 	@Override
 	public void render () {
-
+		// Check for mute button touch
+		if (Gdx.input.justTouched()) {
+			float touchX = Gdx.input.getX();
+			float touchY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Invert Y coordinate
+			
+			// Check if mute button was pressed
+			if (muteButtonRect.contains(touchX, touchY)) {
+				isMuted = !isMuted;
+				// Save mute state to preferences
+				preferences.putBoolean("muted", isMuted);
+				preferences.flush();
+				updateAudioState();
+			}
+		}
 
 		batch.begin();
 		batch.draw(background, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		
+		// Draw mute button with white background circle
+		batch.setColor(1, 1, 1, 0.8f);  // Slightly transparent white
+		if (isMuted) {
+			batch.draw(soundOffIcon, muteButtonRect.x, muteButtonRect.y, muteButtonRect.width, muteButtonRect.height);
+		} else {
+			batch.draw(soundOnIcon, muteButtonRect.x, muteButtonRect.y, muteButtonRect.width, muteButtonRect.height);
+		}
+		batch.setColor(1, 1, 1, 1f);  // Reset to full opacity
 
 		if (gameState == 1) {
 			batch.draw(birds[flapState], Gdx.graphics.getWidth() / 2 - birds[flapState].getWidth() / 2, birdY);
@@ -154,7 +240,9 @@ public class FlappyBird extends ApplicationAdapter {
 			}
 
 			if (Gdx.input.justTouched()) {
-				sound.play(0.5f);
+				if (sound != null && !isMuted) {
+					sound.play(0.5f);
+				}
 
 				velocity = -30;
 
@@ -207,12 +295,13 @@ public class FlappyBird extends ApplicationAdapter {
 
 
 		} else if (gameState == 0) {
+			// Draw the start image in the center of the screen
+			float startX = Gdx.graphics.getWidth() / 2 - startImage.getWidth() / 2;
+			float startY = Gdx.graphics.getHeight() / 2 - startImage.getHeight() / 2;
+			batch.draw(startImage, startX, startY);
 
 			if (Gdx.input.justTouched()) {
-
 				gameState = 1;
-
-
 			}
 
 		} else if (gameState == 2) {
@@ -267,5 +356,14 @@ public class FlappyBird extends ApplicationAdapter {
 
 	}
 
-
+	// Method to update audio state based on mute setting
+	private void updateAudioState() {
+		if (music != null) {
+			if (isMuted) {
+				music.pause();
+			} else {
+				music.play();
+			}
+		}
+	}
 }
